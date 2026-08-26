@@ -1,0 +1,40 @@
+# compose.yml - run the graphical launcher against an isolated SSH host.
+#
+# The repository is mounted read-only into the client so the smoke test invokes
+# the current scripts/cgenv file. The named volume contains one ephemeral SSH
+# keypair and is removed by tests/smoke/run.sh after artifacts are collected.
+
+services:
+  ssh-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ssh-server
+    hostname: ssh-server
+    networks:
+      - smoke
+    volumes:
+      - ssh-keys:/run/cgenv-smoke-keys
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: vscode-client
+    depends_on:
+      ssh-server:
+        condition: service_healthy
+    environment:
+      CGENV_SMOKE_TIMEOUT_SECONDS: ${CGENV_SMOKE_TIMEOUT_SECONDS:-240}
+    networks:
+      - smoke
+    shm_size: 1gb
+    volumes:
+      - ../..:/repo:ro
+      - ssh-keys:/run/cgenv-smoke-keys:ro
+
+networks:
+  smoke:
+
+volumes:
+  ssh-keys:

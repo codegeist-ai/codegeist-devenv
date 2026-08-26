@@ -1,0 +1,9 @@
+#!/bin/sh
+# Open a remote directory through VS Code Remote - SSH.
+
+[ "$#" -eq 2 ] || {
+	printf 'usage: cgenv <ssh-target> <directory>\n' >&2
+	exit 2
+}
+
+exec code --remote "ssh-remote+$1" "$2"

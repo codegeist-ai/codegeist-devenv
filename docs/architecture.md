@@ -1,76 +1,79 @@
 # Architecture
 
-Codegeist Devenv currently has no runtime architecture. This document records
-the intended product boundary and prevents bootstrap files from becoming
-accidental technical decisions.
+Codegeist Devenv currently delegates its only runtime operation to the local
+Visual Studio Code CLI and Remote - SSH extension.
 
-## Intended Boundary
+## Runtime Flow
 
-The repository is intended to develop an extensible CLI that launches and
-manages development environments by coordinating existing development tools.
-It should provide a direct entrypoint into a development workspace without
-replacing the tools that own transport, editor, or environment behavior.
+```text
+task cgenv -- <ssh-target> <directory>
+  -> scripts/cgenv <ssh-target> <directory>
+  -> code --remote ssh-remote+<ssh-target> <directory>
+  -> Visual Studio Code Remote - SSH
+```
 
-## Initial Product Workflow
+`Taskfile.yml` is an optional convenience entrypoint. `scripts/cgenv` owns the
+two-argument validation, constructs the VS Code remote authority, and replaces
+itself with `code` so the caller receives the VS Code CLI exit status.
 
-The first concrete workflow is opening a project on an SSH server directly in a
-local Visual Studio Code window. The user identifies an SSH target and a remote
-project directory. The CLI then delegates the connection and editor launch to
-the local OpenSSH client and VS Code's Remote - SSH extension.
+## Command Contract
 
-VS Code already supports opening a remote folder from its CLI with a remote SSH
-authority. Codegeist Devenv should wrap that capability rather than implement
-an SSH protocol, maintain a separate long-lived SSH session, or install its own
-editor runtime on the server.
+The first argument is an SSH config alias or another target accepted by VS Code
+Remote - SSH. The launcher prefixes it with `ssh-remote+`. The second argument
+is passed verbatim as the directory to open on that SSH target.
 
-This workflow defines a product outcome, not a command contract. The executable
-name, subcommand, flags, accepted SSH target forms, and remote-path semantics
-remain deferred. Integration with `devenv`, other editors, and additional
-development workflows may be added later through an extension model that has
-not yet been designed.
+The local machine must already provide the `code` CLI, Remote - SSH extension,
+SSH configuration, and authentication. The launcher does not inspect or modify
+those dependencies.
 
-## Current State
+## Boundary
 
-The repository contains only documentation, Git metadata, and the shared
-development and agent-kit submodules. It has no executable, library, package,
-VS Code or SSH integration, Nix module, Devenv project, shell integration,
-build, test, or release path.
+The launcher does not implement SSH, install a remote editor runtime, start a
+Dev Container, manage browser callbacks, or keep a resident process. Visual
+Studio Code owns connection establishment, prompts, editor lifecycle, and any
+later Dev Container transition.
 
-The `.devcontainer/` and `.opencode/` gitlinks support work on this repository.
-They do not define how the future CLI is installed or consumed.
+The repository's `.devcontainer/` and `.opencode/` gitlinks support development
+of this repository. They are not part of the `cgenv` runtime contract.
+
+## Smoke-Test Topology
+
+The Docker files under `tests/smoke/` exercise the runtime boundary without
+adding Docker to the launcher itself:
+
+```text
+task smoke
+  -> tests/smoke/run.sh
+  -> Docker Compose
+     -> client: Xvfb + Openbox + VS Code Desktop + Remote - SSH
+        -> /repo/scripts/cgenv ssh-server /workspace
+     -> ssh-server: OpenSSH + /workspace
+        -> VS Code Server installed through Remote - SSH
+```
+
+The checkout is mounted read-only into the client, so the test invokes the
+current `scripts/cgenv` file. A named volume carries one ephemeral SSH keypair
+between the two containers. The runner copies screenshots and logs to ignored
+`.test-results/cgenv-smoke/` output before removing containers, the Compose
+network, and that volume.
+
+The client runs the real Electron application as an unprivileged user on a
+virtual X11 display. This is a test-only arrangement: full VS Code in a Linux
+container is outside Microsoft's supported production environments and is not
+a consumer deployment model for Codegeist Devenv. A client-only `code` wrapper
+adds `--no-sandbox` because Chromium's namespace sandbox cannot initialize under
+default Docker isolation; the container receives no extra host capabilities.
 
 ## Deferred Decisions
 
-A later task must specify at least:
-
-- Executable name, subcommands, flags, and observable behavior.
-- Supported launch environments, including whether native Linux and WSL are in
-  scope.
-- How the local VS Code CLI and Remote - SSH extension are discovered and
-  validated.
-- Accepted SSH targets, including direct `user@host` values and SSH config
-  aliases.
-- Remote-path rules, including absolute paths, home-relative paths, validation,
-  and shell expansion.
-- Process handoff, window reuse, authentication prompts, failures, and exit
-  behavior.
-- Relationship to the upstream `devenv` executable and other editor
-  integrations.
-- Implementation language and dependency policy.
-- Meaning of an extension or additional function.
-- Configuration discovery, precedence, namespacing, and collision handling.
-- Installation, upgrades, reproducibility, and upstream version compatibility.
-- Consumer integration and whether Git submodules are part of that contract.
-- Test layers, supported platforms, packaging, versioning, and releases.
-- Project licensing and redistribution terms.
-
-These decisions must be based on concrete requirements and current upstream
-documentation for the integrated tools. Do not introduce a provisional file
-layout or executable stub before that specification exists.
+- Installation and distribution outside a repository checkout.
+- Explicit local platform support and compatibility policy.
+- Additional editors or workspace launch modes.
+- Versioning, releases, and project licensing.
 
 ## Public Repository Boundary
 
 Gitea is private, but all committed Git refs are mirrored to public GitHub.
-Architecture notes, source code, fixtures, and generated files added later must
-therefore be suitable for public redistribution and must never contain secrets
-or private planning material.
+Source, documentation, fixtures, and generated files must therefore be suitable
+for public redistribution and must never contain secrets or private planning
+material.
