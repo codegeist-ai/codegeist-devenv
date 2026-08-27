@@ -2,7 +2,7 @@
 
 - ID: `T003`
 - Type: `feature`
-- Status: `in progress`
+- Status: `solved`
 - Parent: `none`
 - Tracking: `none`
 
@@ -180,6 +180,33 @@ Out of scope:
   `curl -fsSL https://github.com/codegeist-ai/codegeist-devenv/releases/latest/download/install.sh | sh`
   and confirm `$HOME/.local/bin/cgenv` exists, is executable, and preserves the
   launcher contract.
+
+Verification completed on 2026-08-27:
+
+- Shell syntax, Compose configuration, Taskfile discovery, workflow YAML,
+  executable modes, and `git --no-pager diff --check` passed.
+- `task release-test -- v0.1.0 HEAD` passed from implementation commit
+  `ed1e4fdd0dda3af37004418bc3d207817a08269a`.
+- Repeated builds from the same ref produced the same ZIP digest. The published
+  archive contains only the versioned directories and `scripts/cgenv`; it does
+  not contain `install.sh`.
+- Local tests covered the real streamed installer pipeline, exact download URLs,
+  Linux rejection, default and custom destinations, existing-directory mode
+  preservation, checksum rejection, truncated-input safety, executable mode,
+  and launcher arguments containing spaces.
+- Gitea and GitHub `main` matched the implementation commit before release.
+  Annotated tag `v0.1.0` resolves to that commit on both hosts.
+- GitHub Actions run
+  `https://github.com/codegeist-ai/codegeist-devenv/actions/runs/33081157114`
+  completed successfully from the mirrored tag and published the release.
+- Public release
+  `https://github.com/codegeist-ai/codegeist-devenv/releases/tag/v0.1.0`
+  exposes exactly `install.sh`, `codegeist-devenv-v0.1.0.zip`, and
+  `SHA256SUMS`. Anonymous downloads and the published checksum passed.
+- The documented `curl -fsSL .../install.sh | sh` command installed
+  `/home/dev/.local/bin/cgenv`. The file is mode `0755`, matches tagged
+  `scripts/cgenv` byte-for-byte, resolves through `PATH`, and returns the
+  documented usage with exit status `2` for missing arguments.
 
 ## File Targets
 
