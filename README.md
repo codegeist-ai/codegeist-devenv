@@ -3,6 +3,26 @@
 Codegeist Devenv provides a small local launcher for opening an SSH-hosted
 directory through Visual Studio Code Remote - SSH.
 
+## Installation
+
+The public installer supports Linux and installs the release scripts into
+`$HOME/.local/bin` by default. It requires `curl`, `install`, `mktemp`,
+`sha256sum`, and Info-ZIP `unzip`:
+
+```bash
+curl -fsSL https://github.com/codegeist-ai/codegeist-devenv/releases/latest/download/install.sh | sh
+```
+
+Choose another user-writable binary directory with:
+
+```bash
+curl -fsSL https://github.com/codegeist-ai/codegeist-devenv/releases/latest/download/install.sh | sh -s -- --bin-dir /path/to/bin
+```
+
+`install.sh` is a separate GitHub release asset. It downloads and verifies the
+matching ZIP, whose payload contains only the executable files from `scripts/`,
+then installs each file with mode `0755`. The installer does not invoke sudo.
+
 ## Usage
 
 The local `code` CLI and the
@@ -10,7 +30,13 @@ The local `code` CLI and the
 already be installed. The SSH target must already work with the user's normal
 SSH configuration and authentication.
 
-Run the workspace task with an SSH target and remote directory:
+Run the installed launcher with an SSH target and remote directory:
+
+```bash
+cgenv remote_server /code/my_project
+```
+
+From a repository checkout, the workspace task delegates to the same script:
 
 ```bash
 task cgenv -- remote_server /code/my_project
@@ -33,9 +59,27 @@ Dev Container, or managing VS Code after the handoff.
 
 ## Current Scope
 
-The production runtime consists only of `scripts/cgenv` and its optional
-`Taskfile.yml` entrypoint. There is no Devenv/Nix configuration, Docker-based
-runtime image, resident service, package, or release automation yet.
+The production runtime consists only of executable files under `scripts/`,
+initially `scripts/cgenv`. GitHub release `v0.1.0` packages that directory for
+the Linux installer. There is no Devenv/Nix configuration, Docker-based runtime
+image, resident service, package-manager integration, or automatic updater.
+
+## Releases
+
+Gitea remains the primary source of Git refs. Annotated SemVer tags are mirrored
+to GitHub, where `.github/workflows/release.yml` builds and tests these three
+public assets:
+
+- `install.sh`
+- `codegeist-devenv-v0.1.0.zip`
+- `SHA256SUMS`
+
+The installer is not stored inside the ZIP. The archive contains only the
+versioned `scripts/` tree. Release builds can be checked locally with:
+
+```bash
+task release-test -- v0.1.0 HEAD
+```
 
 ## Graphical Smoke Test
 
@@ -73,6 +117,8 @@ default Docker isolation.
   launcher contract and verification.
 - `docs/tasks/T002_graphical_remote_ssh_smoke_test.md` records the graphical
   end-to-end test contract and verification.
+- `docs/tasks/T003_publish_installable_script_release.md` records the Linux
+  installer and public release contract.
 - `INDEX.md` provides the repository navigation map.
 
 ## Workspace Kits
@@ -92,14 +138,14 @@ decision for how future projects will consume the CLI.
 
 Gitea at `git.codegeist.ai` is the private primary write target. GitHub at
 `github.com/codegeist-ai/codegeist-devenv` is a public push mirror of Git refs.
-Issues, pull requests, secrets, permissions, Actions state, and other
-platform-specific state are not automatically synchronized.
+GitHub Actions turns mirrored release tags into public release assets. Issues,
+pull requests, secrets, permissions, Actions state, releases, and other
+platform-specific state are not synchronized back to Gitea.
 
 Treat every committed ref as public. Do not commit credentials, private plans,
 or material that cannot be redistributed publicly.
 
-## License Status
+## License
 
-No project license has been selected. Public visibility does not grant
-permission to use, copy, modify, or redistribute future implementation work.
-A later task must select and document a license before such rights are assumed.
+Codegeist Devenv is distributed under the Zero-Clause BSD license. See
+[`LICENSE`](LICENSE).

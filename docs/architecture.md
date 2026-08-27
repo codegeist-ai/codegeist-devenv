@@ -36,6 +36,31 @@ later Dev Container transition.
 The repository's `.devcontainer/` and `.opencode/` gitlinks support development
 of this repository. They are not part of the `cgenv` runtime contract.
 
+## Installation And Distribution
+
+The Linux distribution path packages only the executable `scripts/` tree:
+
+```text
+annotated v0.1.0 tag in Gitea
+  -> Git ref mirror to GitHub
+  -> GitHub Actions release workflow
+  -> install.sh + codegeist-devenv-v0.1.0.zip + SHA256SUMS
+  -> install.sh downloads and verifies the ZIP
+  -> scripts/* installed into $HOME/.local/bin by default
+```
+
+`install.sh` is a separate release asset and is never ZIP payload. The ZIP has a
+single versioned root containing only `scripts/`. The installer supports Linux,
+does not invoke sudo, and accepts only `--bin-dir` to replace the default
+destination. It validates `SHA256SUMS` before extracting or changing the
+destination.
+
+`tools/build-release.sh` produces the three local assets with Git's built-in ZIP
+archive support. `tests/release.sh` verifies archive isolation, checksum
+handling, streamed installer execution, destination selection, executable mode,
+and the installed launcher handoff. `.github/workflows/release.yml` applies the
+same test before creating the public GitHub release from a mirrored SemVer tag.
+
 ## Smoke-Test Topology
 
 The Docker files under `tests/smoke/` exercise the runtime boundary without
@@ -66,14 +91,14 @@ default Docker isolation; the container receives no extra host capabilities.
 
 ## Deferred Decisions
 
-- Installation and distribution outside a repository checkout.
-- Explicit local platform support and compatibility policy.
 - Additional editors or workspace launch modes.
-- Versioning, releases, and project licensing.
+- Installer or package-manager support outside Linux.
+- Compatibility and upgrade policy beyond the initial `v0.1.0` release.
 
 ## Public Repository Boundary
 
-Gitea is private, but all committed Git refs are mirrored to public GitHub.
-Source, documentation, fixtures, and generated files must therefore be suitable
-for public redistribution and must never contain secrets or private planning
+Gitea is private, but all committed Git refs are mirrored to public GitHub and
+release assets are published there under the repository's 0BSD license. Source,
+documentation, fixtures, and generated files must therefore be suitable for
+public redistribution and must never contain secrets or private planning
 material.

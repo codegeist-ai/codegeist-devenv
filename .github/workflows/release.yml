@@ -1,0 +1,48 @@
+# release.yml - test and publish script-only assets for a SemVer tag.
+#
+# Tag refs originate in Gitea and reach GitHub through the push mirror. The
+# manual trigger is a fallback when that mirrored tag does not emit a push run.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag context
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" != tag ]]; then
+            printf 'release workflow requires a tag ref\n' >&2
+            exit 1
+          fi
+
+      - name: Build and test release assets
+        run: ./tests/release.sh "${GITHUB_REF_NAME}" "${GITHUB_SHA}"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            "dist/${GITHUB_REF_NAME}/install.sh" \
+            "dist/${GITHUB_REF_NAME}/codegeist-devenv-${GITHUB_REF_NAME}.zip" \
+            "dist/${GITHUB_REF_NAME}/SHA256SUMS" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --verify-tag \
+            --generate-notes \
+            --title "Codegeist Devenv ${GITHUB_REF_NAME}"

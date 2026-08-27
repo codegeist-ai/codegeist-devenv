@@ -1,7 +1,7 @@
 # Taskfile.yml - small workspace entrypoints.
-# Inputs: `cgenv` forwards CLI_ARGS; `smoke` accepts CGENV_SMOKE_TIMEOUT_SECONDS.
-# Side effects: cgenv opens VS Code; smoke builds disposable Docker resources.
-# Related files: scripts/cgenv and tests/smoke/run.sh
+# Inputs: cgenv and release tasks forward CLI_ARGS; smoke accepts its timeout.
+# Side effects: tasks open VS Code, build release output, or run test resources.
+# Related files: scripts/cgenv, tools/build-release.sh, and tests/smoke/run.sh
 
 version: '3'
 
@@ -13,3 +13,11 @@ tasks:
   smoke:
     desc: Run the graphical VS Code Remote - SSH smoke test
     cmd: ./tests/smoke/run.sh
+
+  release-build:
+    desc: Build installable script release assets
+    cmd: ./tools/build-release.sh {{.CLI_ARGS}}
+
+  release-test:
+    desc: Test release assets and the streamed installer
+    cmd: ./tests/release.sh {{.CLI_ARGS}}

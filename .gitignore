@@ -4,4 +4,5 @@
 /.worktrees/
 /.chrome/
 /.test-results/
+/dist/
 /.oc_local/.gitignore
