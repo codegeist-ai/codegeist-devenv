@@ -2,7 +2,7 @@
 
 - ID: `T004`
 - Type: `fix`
-- Status: `in progress`
+- Status: `solved`
 - Parent: `none`
 - Tracking: `none`
 
@@ -72,6 +72,32 @@ Out of scope:
   `event=install_command_smoke status=passed command=cgenv`.
 - Run the published installer in a disposable home, activate its generated
   shell configuration, and invoke `cgenv` by name with a fake `code` command.
+
+Verification completed on 2026-08-27:
+
+- `sh -n install.sh`, `bash -n tools/build-release.sh tests/release.sh
+  tests/smoke/*.sh`, Compose configuration, and `git diff --check` passed.
+- `task release-test -- v0.1.1 f80c3e4ba40d` passed against implementation
+  commit `f80c3e4ba40d0b833b4bff3382bd638f21ff1c05`.
+- The release test began with an isolated PATH, streamed the generated
+  installer, sourced its Bash configuration, resolved the installed command,
+  invoked `cgenv` by name, and emitted
+  `event=install_command_smoke status=passed command=cgenv` after verifying the
+  exact launcher handoff.
+- Installer coverage also passed for mode `0755`, Bash and Zsh configuration,
+  idempotence, an already-active PATH, custom destinations, `--no-modify-path`,
+  no-HOME custom installation, invalid PATH entries, checksum rejection, and
+  truncated streams with either the final call or completion marker missing.
+- Annotated tag `v0.1.1` resolves to the implementation commit on Gitea and
+  GitHub. GitHub Actions run
+  `https://github.com/codegeist-ai/codegeist-devenv/actions/runs/33101053639`
+  completed successfully and published all three assets.
+- Anonymous downloads of `install.sh`, `codegeist-devenv-v0.1.1.zip`, and
+  `SHA256SUMS` passed the published checksum and exact archive inventory checks.
+- The public latest-release installer ran in a disposable Bash home without
+  sudo, added `$HOME/.cgenv/bin` to `.bashrc`, installed mode-`0755` `cgenv`,
+  and executed `cgenv smoke-host /workspace` by command name with a fake `code`
+  command and exit status `0`.
 
 ## File Targets
 
