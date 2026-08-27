@@ -2,7 +2,7 @@
 # build-release.sh - build the three assets for one script-only release.
 #
 # Inputs:
-# - Argument 1 is a normal SemVer tag such as v0.1.0.
+# - Argument 1 is a normal SemVer tag such as v0.1.1.
 # - Argument 2 optionally selects the Git ref for the scripts/ archive.
 #
 # Side effects:
@@ -11,7 +11,7 @@
 # Related files:
 # - install.sh
 # - .github/workflows/release.yml
-# - docs/tasks/T003_publish_installable_script_release.md
+# - docs/tasks/T004_make_installed_launcher_shell_resolvable.md
 
 set -Eeuo pipefail
 

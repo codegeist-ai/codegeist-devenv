@@ -6,22 +6,42 @@ directory through Visual Studio Code Remote - SSH.
 ## Installation
 
 The public installer supports Linux and installs the release scripts into
-`$HOME/.local/bin` by default. It requires `curl`, `install`, `mktemp`,
-`sha256sum`, and Info-ZIP `unzip`:
+`$HOME/.cgenv/bin` by default. It requires `curl`, `grep`, `install`, `mktemp`,
+`rm`, `sed`, `sha256sum`, `uname`, and Info-ZIP `unzip`:
 
 ```bash
 curl -fsSL https://github.com/codegeist-ai/codegeist-devenv/releases/latest/download/install.sh | sh
 ```
 
-Choose another user-writable binary directory with:
+The installer adds that binary directory to the first existing configuration
+file for the shell selected by `$SHELL`, including Bash, Zsh, Fish, Ash, and
+POSIX `sh`. For Bash, the added entry is:
+
+```bash
+export PATH="$HOME/.cgenv/bin:$PATH"
+```
+
+An installer process cannot change the environment of its already-running
+parent shell. Run the activation command printed by the installer, for example
+`source ~/.bashrc`. Future shells that read the selected configuration file also
+receive the entry; a normal new interactive Bash reads `.bashrc`. Repeated
+installations do not duplicate the configuration entry.
+
+Choose another absolute, user-writable binary directory with:
 
 ```bash
 curl -fsSL https://github.com/codegeist-ai/codegeist-devenv/releases/latest/download/install.sh | sh -s -- --bin-dir /path/to/bin
 ```
 
+Pass `--no-modify-path` to install the executable without changing a shell
+configuration file. If the selected directory is not already active, the
+installer then prints the PATH command to apply manually.
+
 `install.sh` is a separate GitHub release asset. It downloads and verifies the
 matching ZIP, whose payload contains only the executable files from `scripts/`,
-then installs each file with mode `0755`. The installer does not invoke sudo.
+then installs each file with mode `0755`. Installation and shell configuration
+stay inside the current user's home by default; the installer never invokes
+`sudo`.
 
 ## Usage
 
@@ -60,7 +80,7 @@ Dev Container, or managing VS Code after the handoff.
 ## Current Scope
 
 The production runtime consists only of executable files under `scripts/`,
-initially `scripts/cgenv`. GitHub release `v0.1.0` packages that directory for
+initially `scripts/cgenv`. GitHub release `v0.1.1` packages that directory for
 the Linux installer. There is no Devenv/Nix configuration, Docker-based runtime
 image, resident service, package-manager integration, or automatic updater.
 
@@ -71,14 +91,14 @@ to GitHub, where `.github/workflows/release.yml` builds and tests these three
 public assets:
 
 - `install.sh`
-- `codegeist-devenv-v0.1.0.zip`
+- `codegeist-devenv-v0.1.1.zip`
 - `SHA256SUMS`
 
 The installer is not stored inside the ZIP. The archive contains only the
 versioned `scripts/` tree. Release builds can be checked locally with:
 
 ```bash
-task release-test -- v0.1.0 HEAD
+task release-test -- v0.1.1 HEAD
 ```
 
 ## Graphical Smoke Test
@@ -119,6 +139,8 @@ default Docker isolation.
   end-to-end test contract and verification.
 - `docs/tasks/T003_publish_installable_script_release.md` records the Linux
   installer and public release contract.
+- `docs/tasks/T004_make_installed_launcher_shell_resolvable.md` records the
+  user-local binary directory and shell PATH integration.
 - `INDEX.md` provides the repository navigation map.
 
 ## Workspace Kits

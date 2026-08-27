@@ -41,25 +41,35 @@ of this repository. They are not part of the `cgenv` runtime contract.
 The Linux distribution path packages only the executable `scripts/` tree:
 
 ```text
-annotated v0.1.0 tag in Gitea
+annotated v0.1.1 tag in Gitea
   -> Git ref mirror to GitHub
   -> GitHub Actions release workflow
-  -> install.sh + codegeist-devenv-v0.1.0.zip + SHA256SUMS
+  -> install.sh + codegeist-devenv-v0.1.1.zip + SHA256SUMS
   -> install.sh downloads and verifies the ZIP
-  -> scripts/* installed into $HOME/.local/bin by default
+  -> scripts/* installed into $HOME/.cgenv/bin by default
+  -> shell config adds that directory to PATH
 ```
 
 `install.sh` is a separate release asset and is never ZIP payload. The ZIP has a
 single versioned root containing only `scripts/`. The installer supports Linux,
-does not invoke sudo, and accepts only `--bin-dir` to replace the default
-destination. It validates `SHA256SUMS` before extracting or changing the
-destination.
+does not invoke sudo, and accepts `--bin-dir` to replace the default destination
+or `--no-modify-path` to skip shell configuration. It validates `SHA256SUMS`
+before extracting or changing the destination. Custom destinations must be
+absolute and cannot contain the `PATH` separator `:`. After installing
+mode-`0755` payload files, it idempotently updates the first existing
+configuration file for the shell named by `$SHELL`. Because a child process
+cannot change its parent shell environment, the installer prints the
+configuration file to source. Future shells receive the entry when they read
+that selected file; shell startup behavior remains owned by the shell.
 
 `tools/build-release.sh` produces the three local assets with Git's built-in ZIP
 archive support. `tests/release.sh` verifies archive isolation, checksum
 handling, streamed installer execution, destination selection, executable mode,
-and the installed launcher handoff. `.github/workflows/release.yml` applies the
-same test before creating the public GitHub release from a mirrored SemVer tag.
+shell configuration, command-name resolution, and the installed launcher
+handoff. The command smoke starts without `cgenv` in `PATH`, activates the
+generated shell configuration, and invokes `cgenv` by name.
+`.github/workflows/release.yml` applies the same test before creating the public
+GitHub release from a mirrored SemVer tag.
 
 ## Smoke-Test Topology
 

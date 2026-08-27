@@ -13,13 +13,15 @@ launcher.
 
 - `scripts/cgenv` - validates an SSH target and directory, then hands off to the
   local VS Code CLI.
-- `install.sh` - downloads, verifies, and installs the Linux release scripts.
+- `install.sh` - downloads and verifies the Linux release scripts, installs them
+  without root, and configures the user's shell PATH.
 - `tools/build-release.sh` - builds the separate installer, script ZIP, and
   checksum release assets.
 - `.github/workflows/release.yml` - publishes tested assets for mirrored SemVer
   tags.
 - `Taskfile.yml` - exposes launcher, smoke-test, and release entrypoints.
-- `tests/release.sh` - verifies the ZIP boundary and streamed installer.
+- `tests/release.sh` - verifies the ZIP boundary, streamed installer, shell PATH,
+  and invocation of the installed `cgenv` command.
 - `tests/smoke/` - runs the launcher through graphical VS Code and an isolated
   SSH server using disposable Docker resources.
 - `LICENSE` - applies the 0BSD license to repository-owned material.
@@ -52,14 +54,16 @@ launcher.
   `docs/tasks/T002_graphical_remote_ssh_smoke_test.md`.
 - Track the installable release through
   `docs/tasks/T003_publish_installable_script_release.md`.
+- Track user-local installation and shell PATH integration through
+  `docs/tasks/T004_make_installed_launcher_shell_resolvable.md`.
 
 ## Search Hints
 
 - `code --remote` and `ssh-remote+` - the complete runtime handoff.
 - `CLI_ARGS` - Taskfile forwarding for launcher arguments.
 - `cgenv` - executable and Taskfile entrypoint.
-- `RELEASE_VERSION`, `SHA256SUMS`, and `git archive` - installer and release
-  integrity contract.
+- `RELEASE_VERSION`, `SHA256SUMS`, `install_path`, and `git archive` - installer
+  integrity and shell integration contract.
 - `contents: write` and `gh release create` - GitHub release publication.
 - `CGENV_SMOKE`, `ssh-server`, and `Xvfb` - graphical smoke-test assertions and
   topology.

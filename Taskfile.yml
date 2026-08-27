@@ -19,5 +19,5 @@ tasks:
     cmd: ./tools/build-release.sh {{.CLI_ARGS}}
 
   release-test:
-    desc: Test release assets and the streamed installer
+    desc: Test release assets, installer, and installed command
     cmd: ./tests/release.sh {{.CLI_ARGS}}

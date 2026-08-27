@@ -2,26 +2,31 @@
 # install.sh - install the scripts from one Codegeist Devenv GitHub release.
 #
 # Inputs:
-# - --bin-dir optionally replaces the default $HOME/.local/bin destination.
-# - The v0.1.0 GitHub release provides the ZIP and SHA256SUMS assets.
+# - --bin-dir optionally replaces the default $HOME/.cgenv/bin destination.
+# - --no-modify-path skips shell configuration changes.
+# - The v0.1.1 GitHub release provides the ZIP and SHA256SUMS assets.
 #
 # Side effects:
 # - Downloads release assets into a temporary directory.
 # - Installs every validated scripts/ payload file with mode 0755.
+# - Adds the default or selected binary directory to the user's shell config.
 #
 # Related files:
 # - tools/build-release.sh
-# - docs/tasks/T003_publish_installable_script_release.md
+# - docs/tasks/T004_make_installed_launcher_shell_resolvable.md
 
 set -eu
 
-readonly RELEASE_VERSION=v0.1.0
+readonly RELEASE_VERSION=v0.1.1
 readonly REPOSITORY=codegeist-ai/codegeist-devenv
 readonly ARCHIVE_ROOT=codegeist-devenv-${RELEASE_VERSION}
 readonly ARCHIVE_NAME=${ARCHIVE_ROOT}.zip
 readonly RELEASE_URL=https://github.com/${REPOSITORY}/releases/download/${RELEASE_VERSION}
 
 bin_dir=
+default_bin_dir=
+installer_complete=false
+modify_path=true
 temp_dir=
 
 log() {
@@ -37,7 +42,7 @@ fail() {
 }
 
 usage() {
-	printf 'usage: install.sh [--bin-dir <path>]\n'
+	printf 'usage: install.sh [--bin-dir <path>] [--no-modify-path]\n'
 }
 
 cleanup() {
@@ -46,16 +51,167 @@ cleanup() {
 	fi
 }
 
-trap cleanup 0
+finish() {
+	status=$?
+	trap - 0
+	cleanup
+	if [ "$installer_complete" != true ]; then
+		log error install "status=failed reason=incomplete_installer_stream"
+		exit 1
+	fi
+	exit "$status"
+}
+
+path_contains() {
+	case ":${PATH:-}:" in
+		*":$1:"*) return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
+select_shell_config() {
+	selected_config=
+	case $1 in
+		bash)
+			set -- \
+				"$HOME/.bashrc" \
+				"$HOME/.bash_profile" \
+				"$HOME/.profile"
+			;;
+		zsh)
+			set -- \
+				"${ZDOTDIR:-$HOME}/.zshrc" \
+				"${ZDOTDIR:-$HOME}/.zshenv"
+			;;
+		fish)
+			set -- "$xdg_config_home/fish/config.fish"
+			;;
+		ash)
+			set -- "$HOME/.profile"
+			;;
+		sh)
+			set -- "$HOME/.profile"
+			;;
+		*)
+			return
+			;;
+	esac
+
+	for config in "$@"; do
+		if [ -f "$config" ]; then
+			selected_config=$config
+			return
+		fi
+	done
+}
+
+build_path_command() {
+	if [ -n "$default_bin_dir" ] && [ "$bin_dir" = "$default_bin_dir" ]; then
+		case $shell_name in
+			fish) path_command='fish_add_path "$HOME/.cgenv/bin"' ;;
+			*) path_command='export PATH="$HOME/.cgenv/bin:$PATH"' ;;
+		esac
+		return
+	fi
+
+	escaped_bin_dir=$(printf '%s' "$bin_dir" | sed "s/'/'\\\\''/g")
+	case $shell_name in
+		fish) path_command="fish_add_path '$escaped_bin_dir'" ;;
+		*) path_command="export PATH='$escaped_bin_dir':\"\$PATH\"" ;;
+	esac
+}
+
+print_manual_path() {
+	log warning install_path \
+		"status=manual shell=$shell_name destination=$bin_dir"
+	printf 'Add cgenv to PATH manually:\n  %s\n' "$path_command" >&2
+}
+
+configure_path() {
+	shell_path=${SHELL:-sh}
+	shell_name=${shell_path##*/}
+	[ -n "$shell_name" ] || shell_name=sh
+	build_path_command
+
+	if [ "$modify_path" = false ]; then
+		if path_contains "$bin_dir"; then
+			log info install_path \
+				"status=active shell=$shell_name destination=$bin_dir"
+		else
+			print_manual_path
+		fi
+		return
+	fi
+
+	xdg_config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+	select_shell_config "$shell_name"
+	if [ -z "$selected_config" ]; then
+		print_manual_path
+		return
+	fi
+
+	if grep -Fqx "$path_command" "$selected_config"; then
+		path_status=present
+	else
+		grep_status=$?
+		[ "$grep_status" -eq 1 ] \
+			|| fail "shell_config_read_failed config=$selected_config"
+		if [ -w "$selected_config" ]; then
+			printf '\n# cgenv\n%s\n' "$path_command" >>"$selected_config"
+			path_status=updated
+		else
+			print_manual_path
+			return
+		fi
+	fi
+
+	log info install_path \
+		"status=$path_status shell=$shell_name config=$selected_config destination=$bin_dir"
+	if path_contains "$bin_dir"; then
+		log info install_path \
+			"status=active shell=$shell_name destination=$bin_dir"
+		return
+	fi
+
+	log info install_path \
+		"status=activation_required shell=$shell_name config=$selected_config"
+	case $shell_name in
+		bash | zsh | fish)
+			printf 'Activate cgenv in this shell with:\n  source "%s"\n' \
+				"$selected_config" >&2
+			;;
+		*)
+			printf 'Activate cgenv in this shell with:\n  . "%s"\n' \
+				"$selected_config" >&2
+			;;
+	esac
+}
+
+trap finish 0
 trap 'exit 1' HUP INT TERM
 
 main() {
+	last_argument=
+	for argument in "$@"; do
+		last_argument=$argument
+	done
+	[ "$last_argument" = __cgenv_installer_complete__ ] || return 1
+	installer_complete=true
+
 	while [ "$#" -gt 0 ]; do
 		case $1 in
+			__cgenv_installer_complete__)
+				[ "$#" -eq 1 ] || fail invalid_completion_marker
+				shift
+			;;
 			--bin-dir)
 				[ "$#" -ge 2 ] || fail missing_bin_dir_value
 				bin_dir=$2
 				shift 2
+				;;
+			--no-modify-path)
+				modify_path=false
+				shift
 				;;
 			--help)
 				usage
@@ -67,8 +223,9 @@ main() {
 				;;
 		esac
 	done
+	[ "$installer_complete" = true ] || fail incomplete_installer_stream
 
-	for command in curl install mktemp rm sha256sum uname unzip; do
+	for command in curl grep install mktemp rm sed sha256sum uname unzip; do
 		command -v "$command" >/dev/null 2>&1 \
 			|| fail "missing_command command=$command"
 	done
@@ -77,9 +234,22 @@ main() {
 
 	if [ -z "$bin_dir" ]; then
 		[ -n "${HOME:-}" ] || fail missing_home
-		bin_dir=$HOME/.local/bin
+		default_bin_dir=$HOME/.cgenv/bin
+		bin_dir=$default_bin_dir
+	elif [ -n "${HOME:-}" ]; then
+		default_bin_dir=$HOME/.cgenv/bin
 	fi
 	[ -n "$bin_dir" ] || fail empty_bin_dir
+	case $bin_dir in
+		/*) ;;
+		*) fail bin_dir_not_absolute ;;
+	esac
+	case $bin_dir in
+		*:*) fail bin_dir_contains_path_separator ;;
+	esac
+	if [ "$modify_path" = true ]; then
+		[ -n "${HOME:-}" ] || fail missing_home
+	fi
 
 	log info install \
 		"status=started version=$RELEASE_VERSION destination=$bin_dir"
@@ -144,10 +314,11 @@ main() {
 		install -m 0755 -- "$payload" "$bin_dir/${payload##*/}"
 		installed_count=$((installed_count + 1))
 	done
+	configure_path
 
 	log info install \
 		"status=completed version=$RELEASE_VERSION destination=$bin_dir scripts=$installed_count"
 }
 
-# Keep this call last so a truncated curl | sh stream cannot install anything.
-main "$@"
+# The exit trap and final marker reject a stream that ends before this call.
+main "$@" __cgenv_installer_complete__
